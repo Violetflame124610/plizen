@@ -162,6 +162,6 @@ Just keep the credits. 😊
 
 **Plizen v1.2** · Made by Dhruva · [GitHub](https://github.com/Violetflame124610/plizen)
 
-*The open source Pi management dashboard*
+*The open source Pi management dashboard*<br>
 [Explore more in the website!!](https://plizen.pythonanywhere.com)
 </div>
