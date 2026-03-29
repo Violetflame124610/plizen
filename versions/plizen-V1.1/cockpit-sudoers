@@ -1,0 +1,6 @@
+# Pi Cockpit - allow pi user to manage services and power without password
+pi ALL=(ALL) NOPASSWD: /bin/systemctl start *
+pi ALL=(ALL) NOPASSWD: /bin/systemctl stop *
+pi ALL=(ALL) NOPASSWD: /bin/systemctl restart *
+pi ALL=(ALL) NOPASSWD: /sbin/reboot
+pi ALL=(ALL) NOPASSWD: /sbin/shutdown

@@ -1,0 +1,15 @@
+[Unit]
+Description=Pi Cockpit Backend
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/pi-cockpit/backend
+ExecStart=/home/pi/pi-cockpit/venv/bin/python app.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

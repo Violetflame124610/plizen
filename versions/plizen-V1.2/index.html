@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plizen — Pi Management Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+  --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.15);
+  --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  --accent: #7c3aed; --accent2: #a78bfa;
+  --green: #3fb950; --red: #f85149; --blue: #58a6ff;
+  --yellow: #d29922; --purple: #bc8cff;
+  --font: 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace;
+}
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
+#app { display: flex; height: 100vh; overflow: hidden; flex-direction: column; }
+#shell { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Sidebar ── */
+#sidebar { width: 230px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+#sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.brand-logo { width: 36px; height: 36px; flex-shrink: 0; }
+.brand-text { display: flex; flex-direction: column; }
+.brand-name { font-size: 18px; font-weight: 700; color: var(--accent2); letter-spacing: 1px; }
+.brand-tag { font-size: 9px; color: var(--text3); letter-spacing: 0.5px; }
+.pi-meta { font-size: 10px; color: var(--text2); margin-bottom: 6px; }
+.status-bar { display: flex; align-items: center; gap: 6px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+.status-label { font-size: 10px; color: var(--green); text-transform: uppercase; letter-spacing: 1px; }
+nav { flex: 1; padding: 8px 0; overflow-y: auto; }
+.nav-section { padding: 12px 16px 4px; font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 1.5px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 16px; cursor: pointer; border-left: 3px solid transparent; transition: all .15s; color: var(--text2); font-size: 12px; user-select: none; }
+.nav-item:hover { background: var(--bg3); color: var(--text); border-left-color: var(--border2); }
+.nav-item.active { background: rgba(124,58,237,.12); color: var(--accent2); border-left-color: var(--accent); }
+.nav-item .icon { width: 16px; text-align: center; font-size: 13px; }
+.nav-badge { margin-left: auto; background: var(--red); color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 8px; }
+#sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); }
+.uptime-row { font-size: 10px; color: var(--text3); margin-bottom: 6px; }
+.temp-pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 11px; }
+.temp-pill.cool { border-color: var(--green); color: var(--green); }
+.temp-pill.warm { border-color: var(--yellow); color: var(--yellow); }
+.temp-pill.hot  { border-color: var(--red);   color: var(--red); }
+
+/* ── Main ── */
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+#topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-tab-icon { font-size: 18px; }
+.topbar-title { font-size: 15px; font-weight: 700; }
+.topbar-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.topbar-actions { display: flex; gap: 8px; }
+.btn { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border2); background: transparent; color: var(--text2); font-family: var(--font); font-size: 11px; cursor: pointer; transition: all .15s; }
+.btn:hover { background: var(--bg3); color: var(--text); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: var(--accent2); border-color: var(--accent2); color: #0d1117; }
+.btn.danger { border-color: var(--red); color: var(--red); }
+.btn.danger:hover { background: rgba(248,81,73,.1); }
+#content { flex: 1; overflow-y: auto; padding: 20px; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── Bottom bar ── */
+#bottombar { background: var(--bg2); border-top: 1px solid var(--border); padding: 6px 20px; display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(--text3); flex-shrink: 0; }
+.bottom-brand { display: flex; align-items: center; gap: 6px; }
+.bottom-brand svg { width: 14px; height: 14px; }
+.bottom-ver { color: var(--accent2); font-weight: 700; }
+.bottom-right { display: flex; align-items: center; gap: 16px; }
+.bottom-link { color: var(--text3); text-decoration: none; }
+.bottom-link:hover { color: var(--accent2); }
+
+/* ── Layout ── */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.card-title { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+.mini-stat .val { font-size: 26px; font-weight: 700; }
+.mini-stat .lbl { font-size: 10px; color: var(--text3); margin-top: 3px; }
+.bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.bar-label { width: 80px; font-size: 11px; color: var(--text2); flex-shrink: 0; }
+.bar-track { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width .8s ease; }
+.bar-val { width: 40px; text-align: right; font-size: 11px; color: var(--text2); }
+.gauge-wrap { position: relative; display: flex; align-items: center; justify-content: center; margin: 8px 0; }
+.gauge-svg { width: 130px; height: 80px; }
+.gauge-val { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); font-size: 18px; font-weight: 700; line-height: 1; }
+.gauge-unit { font-size: 10px; color: var(--text2); }
+.fan-item { background: var(--bg3); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+.fan-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.fan-name { font-size: 12px; font-weight: 500; }
+.fan-rpm { font-size: 11px; color: var(--text2); }
+.fan-rpm span { color: var(--accent2); font-weight: 700; }
+.fan-slider-row { display: flex; align-items: center; gap: 10px; }
+.fan-slider-row label { font-size: 10px; color: var(--text3); width: 28px; }
+input[type=range] { flex: 1; accent-color: var(--accent); cursor: pointer; }
+.fan-pct { font-size: 12px; color: var(--accent2); width: 36px; text-align: right; font-weight: 700; }
+.mode-btn { padding: 4px 10px; font-size: 10px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; font-family: var(--font); }
+.mode-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.fan-icon { font-size: 22px; display: inline-block; }
+.fan-icon.spin { animation: spin linear infinite; }
+@keyframes spin { from{transform:rotate(0)}to{transform:rotate(360deg)} }
+.net-flow { display: flex; gap: 16px; text-align: center; margin-bottom: 12px; }
+.net-stat { flex: 1; }
+.net-stat .arrow { font-size: 18px; }
+.net-stat .speed { font-size: 18px; font-weight: 700; }
+.net-stat .dir { font-size: 10px; color: var(--text3); margin-top: 2px; }
+table { width: 100%; border-collapse: collapse; }
+th { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+td { font-size: 12px; color: var(--text2); padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.03); }
+td:first-child { color: var(--text); }
+tr:hover td { background: var(--bg3); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 500; }
+.badge.green  { background: rgba(63,185,80,.15);  color: var(--green); }
+.badge.red    { background: rgba(248,81,73,.15);  color: var(--red); }
+.badge.blue   { background: rgba(88,166,255,.15); color: var(--blue); }
+.badge.yellow { background: rgba(210,153,34,.15); color: var(--yellow); }
+.log-area { background: #0a0f14; border-radius: 8px; padding: 14px; height: 320px; overflow-y: auto; font-size: 11px; line-height: 1.9; }
+.log-line { display: flex; gap: 12px; }
+.log-time { color: var(--text3); flex-shrink: 0; width: 80px; }
+.log-level { width: 44px; flex-shrink: 0; }
+.log-level.info { color: var(--blue); }
+.log-level.warn { color: var(--yellow); }
+.log-level.err  { color: var(--red); }
+.log-level.debug { color: var(--text3); }
+.term-area { background: #050a0f; border-radius: 8px; padding: 16px; height: 300px; overflow-y: auto; font-size: 12px; line-height: 1.7; }
+.t-prompt { color: var(--accent2); }
+.t-out { color: var(--text2); }
+.t-input-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; background: #050a0f; border-radius: 6px; padding: 8px 12px; }
+.t-input { flex: 1; background: transparent; border: none; color: var(--text); font-family: var(--font); font-size: 12px; outline: none; caret-color: var(--accent2); }
+.alert-box { background: rgba(248,81,73,.1); border: 1px solid rgba(248,81,73,.3); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: var(--red); display: flex; align-items: center; gap: 10px; }
+.chart-area { height: 110px; background: var(--bg3); border-radius: 8px; padding: 8px; overflow: hidden; }
+.settings-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.toggle { width: 36px; height: 20px; border-radius: 10px; border: 1px solid var(--border2); background: var(--bg3); cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0; }
+.toggle.on { background: var(--accent); border-color: var(--accent); }
+.toggle::after { content:''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: left .2s; }
+.toggle.on::after { left: 18px; }
+.color-pick-row { display: flex; gap: 8px; }
+.cpick { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+.cpick.sel { border-color: #fff; }
+.term-login { background: var(--bg3); border-radius: 8px; padding: 20px; margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-end; }
+.term-login input { flex: 1; padding: 7px 10px; background: var(--bg); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); font-family: var(--font); font-size: 12px; outline: none; }
+.term-login input:focus { border-color: var(--accent); }
+.tab-header { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+.tab-header-icon { font-size: 24px; }
+.tab-header-title { font-size: 18px; font-weight: 700; color: var(--text); }
+.tab-header-desc { font-size: 11px; color: var(--text3); margin-top: 2px; }
+</style>
+</head>
+<body>
+<div id="app">
+<div id="shell">
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div id="sidebar-header">
+    <div class="brand">
+      <!-- Plizen Logo SVG -->
+      <svg class="brand-logo" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="36" height="36" rx="8" fill="#7c3aed"/>
+        <circle cx="18" cy="18" r="10" stroke="#a78bfa" stroke-width="2" fill="none"/>
+        <circle cx="18" cy="18" r="5" fill="#a78bfa"/>
+        <line x1="18" y1="4" x2="18" y2="8" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"/>
+        <line x1="18" y1="28" x2="18" y2="32" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"/>
+        <line x1="4" y1="18" x2="8" y2="18" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"/>
+        <line x1="28" y1="18" x2="32" y2="18" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-name">Plizen</span>
+        <span class="brand-tag">Pi Management Dashboard</span>
+      </div>
+    </div>
+    <div class="pi-meta" id="sb-ip">connecting…</div>
+    <div class="status-bar">
+      <div class="status-dot" id="conn-dot" style="background:var(--yellow)"></div>
+      <span class="status-label" id="conn-label">Connecting</span>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-section">System</div>
+    <div class="nav-item active" onclick="showTab('overview',this,'📊','System Overview','Live stats and system health')"><span class="icon">📊</span>Overview</div>
+    <div class="nav-item" onclick="showTab('performance',this,'⚡','Performance Monitor','CPU, RAM and process details')"><span class="icon">⚡</span>Performance</div>
+    <div class="nav-item" onclick="showTab('fan',this,'🌀','Fan Control','RPi Active Cooler management')"><span class="icon">🌀</span>Fan Control</div>
+    <div class="nav-section">Resources</div>
+    <div class="nav-item" onclick="showTab('storage',this,'💾','Storage','Disk usage and partitions')"><span class="icon">💾</span>Storage</div>
+    <div class="nav-item" onclick="showTab('networking',this,'🌐','Networking','Interfaces and live traffic')"><span class="icon">🌐</span>Networking</div>
+    <div class="nav-item" onclick="showTab('services',this,'⚙️','Services','Systemd service management')"><span class="icon">⚙️</span>Services <span class="nav-badge" id="svc-badge" style="display:none">!</span></div>
+    <div class="nav-section">Tools</div>
+    <div class="nav-item" onclick="showTab('logs',this,'📋','System Logs','Journal and system events')"><span class="icon">📋</span>Logs</div>
+    <div class="nav-item" onclick="showTab('terminal',this,'$_','Terminal','Secure read-only shell access')"><span class="icon">$_</span>Terminal</div>
+    <div class="nav-item" onclick="showTab('updates',this,'🔄','Software Updates','Available apt package updates')"><span class="icon">🔄</span>Updates <span class="nav-badge" id="upd-badge" style="display:none">?</span></div>
+    <div class="nav-section">Config</div>
+    <div class="nav-item" onclick="showTab('settings',this,'🎛️','Settings','Customize your Plizen dashboard')"><span class="icon">🎛️</span>Settings</div>
+  </nav>
+  <div id="sidebar-footer">
+    <div class="uptime-row">Uptime: <span id="sb-uptime">—</span></div>
+    <div class="temp-pill cool" id="sb-temp-pill">🌡️ <span id="sb-temp">—°C</span></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+<div id="topbar">
+  <div class="topbar-left">
+    <span class="topbar-tab-icon" id="topbar-icon">📊</span>
+    <div>
+      <div class="topbar-title" id="topbar-title">System Overview</div>
+      <div class="topbar-sub" id="topbar-sub">Live stats and system health</div>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn" onclick="loadAll()">↺ Refresh</button>
+    <button class="btn danger" onclick="doReboot()">⏻ Reboot</button>
+    <button class="btn primary" onclick="doShutdown()">⬛ Shutdown</button>
+  </div>
+</div>
+
+<div id="content">
+
+<!-- OVERVIEW -->
+<div class="tab-pane active" id="tab-overview">
+  <div id="alert-box" class="alert-box" style="display:none">⚠ CPU temperature critical! Consider increasing fan speed.</div>
+  <div class="grid4" style="margin-bottom:16px">
+    <div class="card mini-stat"><div class="card-title">🌡️ CPU Temp</div><div class="val" id="ov-temp">—</div><div class="lbl" id="ov-temp-lbl">—</div></div>
+    <div class="card mini-stat"><div class="card-title">⚡ CPU Load</div><div class="val" id="ov-cpu">—</div><div class="lbl">4 cores</div></div>
+    <div class="card mini-stat"><div class="card-title">🧠 RAM</div><div class="val" id="ov-ram">—</div><div class="lbl" id="ov-ram-lbl">—</div></div>
+    <div class="card mini-stat"><div class="card-title">🌀 Fan</div><div class="val" id="ov-fan">—</div><div class="lbl">RPM</div></div>
+  </div>
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card"><div class="card-title">📈 CPU History</div><div class="chart-area"><svg id="cpu-svg" width="100%" height="100%" viewBox="0 0 400 100" preserveAspectRatio="none"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7c3aed" stop-opacity="0.4"/><stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/></linearGradient></defs><path id="cpu-fill" fill="url(#cg)"/><path id="cpu-line" fill="none" stroke="#a78bfa" stroke-width="2"/></svg></div></div>
+    <div class="card"><div class="card-title">📈 RAM History</div><div class="chart-area"><svg id="ram-svg" width="100%" height="100%" viewBox="0 0 400 100" preserveAspectRatio="none"><defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#58a6ff" stop-opacity="0.4"/><stop offset="100%" stop-color="#58a6ff" stop-opacity="0"/></linearGradient></defs><path id="ram-fill" fill="url(#rg)"/><path id="ram-line" fill="none" stroke="#58a6ff" stroke-width="2"/></svg></div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">🖥️ Per-Core + Memory</div>
+    <div class="grid2"><div id="cores-bars"></div><div id="mem-bars"></div></div>
+  </div>
+</div>
+
+<!-- PERFORMANCE -->
+<div class="tab-pane" id="tab-performance">
+  <div class="tab-header"><span class="tab-header-icon">⚡</span><div><div class="tab-header-title">Performance Monitor</div><div class="tab-header-desc">CPU, RAM and process details</div></div></div>
+  <div class="grid3" style="margin-bottom:16px">
+    <div class="card"><div class="card-title">🌡️ Temperature</div><div class="gauge-wrap"><svg class="gauge-svg" viewBox="0 0 130 80"><path d="M15,75 A55,55 0 0,1 115,75" fill="none" stroke="#21262d" stroke-width="10" stroke-linecap="round"/><path id="g-temp-arc" d="M15,75 A55,55 0 0,1 115,75" fill="none" stroke="#3fb950" stroke-width="10" stroke-linecap="round" stroke-dasharray="173" stroke-dashoffset="150"/></svg><div class="gauge-val"><span id="g-temp">—</span><span class="gauge-unit">°C</span></div></div><div style="text-align:center;font-size:10px;color:var(--text3)">Max: 85°C</div></div>
+    <div class="card"><div class="card-title">⚡ CPU Usage</div><div class="gauge-wrap"><svg class="gauge-svg" viewBox="0 0 130 80"><path d="M15,75 A55,55 0 0,1 115,75" fill="none" stroke="#21262d" stroke-width="10" stroke-linecap="round"/><path id="g-cpu-arc" d="M15,75 A55,55 0 0,1 115,75" fill="none" stroke="#a78bfa" stroke-width="10" stroke-linecap="round" stroke-dasharray="173" stroke-dashoffset="173"/></svg><div class="gauge-val"><span id="g-cpu">—</span><span class="gauge-unit">%</span></div></div></div>
+    <div class="card"><div class="card-title">🧠 RAM Usage</div><div class="gauge-wrap"><svg class="gauge-svg" viewBox="0 0 130 80"><path d="M15,75 A55,55 0 0,1 115,75" fill="none" stroke="#21262d" stroke-width="10" stroke-linecap="round"/><path id="g-ram-arc" d="M15,75 A55,55 0 0,1 115,75" fill="none" stroke="#58a6ff" stroke-width="10" stroke-linecap="round" stroke-dasharray="173" stroke-dashoffset="173"/></svg><div class="gauge-val"><span id="g-ram">—</span><span class="gauge-unit">%</span></div></div></div>
+  </div>
+  <div class="card"><div class="card-title">📊 Top Processes</div><div id="proc-placeholder" style="color:var(--text3);font-size:12px">Run <code>ps aux</code> in the Terminal tab to see processes.</div></div>
+</div>
+
+<!-- FAN -->
+<div class="tab-pane" id="tab-fan">
+  <div class="tab-header"><span class="tab-header-icon">🌀</span><div><div class="tab-header-title">Fan Control</div><div class="tab-header-desc">RPi Active Cooler management</div></div></div>
+  <div class="grid2">
+    <div class="card"><div class="card-title">🌀 Active Cooler</div><div id="fan-controls"></div></div>
+    <div class="card">
+      <div class="card-title">🌡️ Thermal Curve (manual mode)</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:14px">Fan % applied at each temperature range</div>
+      <div id="curve-rows"></div>
+      <button class="btn primary" style="width:100%;margin-top:12px" onclick="saveCurve()">💾 Save Curve</button>
+    </div>
+  </div>
+</div>
+
+<!-- STORAGE -->
+<div class="tab-pane" id="tab-storage">
+  <div class="tab-header"><span class="tab-header-icon">💾</span><div><div class="tab-header-title">Storage</div><div class="tab-header-desc">Disk usage and partitions</div></div></div>
+  <div class="card"><div class="card-title">💾 Disk Usage</div><div id="disk-table"><p style="color:var(--text3)">Loading…</p></div></div>
+</div>
+
+<!-- NETWORKING -->
+<div class="tab-pane" id="tab-networking">
+  <div class="tab-header"><span class="tab-header-icon">🌐</span><div><div class="tab-header-title">Networking</div><div class="tab-header-desc">Interfaces and live traffic</div></div></div>
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card"><div class="card-title">🌐 Interfaces</div><div id="net-interfaces"><p style="color:var(--text3)">Loading…</p></div></div>
+    <div class="card"><div class="card-title">📡 Live Traffic</div>
+      <div class="net-flow">
+        <div class="net-stat"><div class="arrow" style="color:var(--green)">↓</div><div class="speed" id="net-rx">— KB/s</div><div class="dir">Download</div></div>
+        <div class="net-stat"><div class="arrow" style="color:var(--accent2)">↑</div><div class="speed" id="net-tx">— KB/s</div><div class="dir">Upload</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SERVICES -->
+<div class="tab-pane" id="tab-services">
+  <div class="tab-header"><span class="tab-header-icon">⚙️</span><div><div class="tab-header-title">Services</div><div class="tab-header-desc">Systemd service management</div></div></div>
+  <div class="card"><div class="card-title">⚙️ Systemd Services</div><div id="svc-table"><p style="color:var(--text3)">Loading…</p></div></div>
+</div>
+
+<!-- LOGS -->
+<div class="tab-pane" id="tab-logs">
+  <div class="tab-header"><span class="tab-header-icon">📋</span><div><div class="tab-header-title">System Logs</div><div class="tab-header-desc">Journal and system events</div></div></div>
+  <div class="card">
+    <div class="card-title">📋 System Journal</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn" onclick="filterLogs('all')">All</button>
+      <button class="btn" onclick="filterLogs('err')">Errors</button>
+      <button class="btn" onclick="filterLogs('warn')">Warnings</button>
+      <button class="btn" onclick="filterLogs('info')">Info</button>
+      <input id="log-search" type="text" placeholder="Search…" oninput="filterLogs('search')"
+        style="flex:1;padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font);font-size:11px">
+    </div>
+    <div class="log-area" id="log-area"><p style="color:var(--text3)">Loading logs…</p></div>
+  </div>
+</div>
+
+<!-- TERMINAL -->
+<div class="tab-pane" id="tab-terminal">
+  <div class="tab-header"><span class="tab-header-icon">$_</span><div><div class="tab-header-title">Terminal</div><div class="tab-header-desc">Secure read-only shell access — password required</div></div></div>
+  <div class="card">
+    <div class="term-login" id="term-login-box">
+      <input type="password" id="term-pass" placeholder="Terminal password…" onkeydown="if(event.key==='Enter')termLogin()">
+      <button class="btn primary" onclick="termLogin()">Unlock →</button>
+    </div>
+    <div id="term-locked" style="font-size:11px;color:var(--text3);margin-bottom:12px">🔒 Enter the terminal password to run commands.</div>
+    <div class="term-area" id="term-out" style="display:none"></div>
+    <div class="t-input-row" id="term-input-row" style="display:none">
+      <span class="t-prompt" id="term-prompt">plizen@pi:~$</span>
+      <input class="t-input" id="term-input" placeholder="type command…" onkeydown="termKey(event)" autocomplete="off" spellcheck="false">
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:var(--text3)" id="term-allowed" style="display:none">
+      Allowed: uname -a, ls, ls -la, pwd, whoami, uptime, df -h, free -h, vcgencmd measure_temp, hostname, ip addr, ps aux, date, clear
+    </div>
+  </div>
+</div>
+
+<!-- UPDATES -->
+<div class="tab-pane" id="tab-updates">
+  <div class="tab-header"><span class="tab-header-icon">🔄</span><div><div class="tab-header-title">Software Updates</div><div class="tab-header-desc">Available apt package updates</div></div></div>
+  <div class="card"><div class="card-title">🔄 Available Updates</div><div id="upd-table"><p style="color:var(--text3)">Loading…</p></div></div>
+</div>
+
+<!-- SETTINGS -->
+<div class="tab-pane" id="tab-settings">
+  <div class="tab-header"><span class="tab-header-icon">🎛️</span><div><div class="tab-header-title">Settings</div><div class="tab-header-desc">Customize your Plizen dashboard</div></div></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">🎛️ Dashboard</div>
+      <div class="settings-row"><div><div style="font-size:12px">Live refresh</div><div style="font-size:10px;color:var(--text3)">WebSocket updates every 2s</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="settings-row"><div><div style="font-size:12px">Temperature alerts</div><div style="font-size:10px;color:var(--text3)">Alert above 70°C</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="settings-row" style="border:none"><div style="font-size:12px">Accent color</div>
+        <div class="color-pick-row">
+          <div class="cpick" style="background:#7c3aed" onclick="setAccent('#7c3aed','#a78bfa',this)"></div>
+          <div class="cpick" style="background:#e25c1d" onclick="setAccent('#e25c1d','#ff7c3a',this)"></div>
+          <div class="cpick" style="background:#58a6ff" onclick="setAccent('#58a6ff','#79b8ff',this)"></div>
+          <div class="cpick" style="background:#3fb950" onclick="setAccent('#3fb950','#56d364',this)"></div>
+          <div class="cpick" style="background:#d29922" onclick="setAccent('#d29922','#e3b341',this)"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">ℹ️ About Plizen</div>
+      <div style="font-size:12px;color:var(--text2);line-height:2.2">
+        <div>Version: <span style="color:var(--accent2);font-weight:700">1.2</span></div>
+        <div>Author: <span style="color:var(--text)">Dhruva</span></div>
+        <div>License: <span style="color:var(--text)">MIT Open Source</span></div>
+        <div>Backend: <span id="about-backend" style="color:var(--text)">—</span></div>
+        <div>Last update: <span id="last-update" style="color:var(--text)">—</span></div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <a href="https://github.com/Violetflame124610/plizen" target="_blank" class="btn" style="text-decoration:none;text-align:center;flex:1">★ GitHub</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- BOTTOM BAR -->
+<div id="bottombar">
+  <div class="bottom-brand">
+    <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="36" height="36" rx="8" fill="#7c3aed"/>
+      <circle cx="18" cy="18" r="10" stroke="#a78bfa" stroke-width="2" fill="none"/>
+      <circle cx="18" cy="18" r="5" fill="#a78bfa"/>
+    </svg>
+    <span><span class="bottom-ver">Plizen</span> Version 1.2 — Made with ♥ by <span style="color:var(--text2)">Dhruva</span></span>
+  </div>
+  <div class="bottom-right">
+    <span>The open source Pi management dashboard</span>
+    <a href="https://github.com/Violetflame124610/plizen" target="_blank" class="bottom-link">github.com/Violetflame124610/plizen</a>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<script>
+const BACKEND = "http://192.168.0.2:9090";
+
+let cpuHist = Array(40).fill(0), ramHist = Array(40).fill(0);
+let allLogs = [], termUnlocked = false, termPassword = "";
+
+const socket = io(BACKEND, {transports:['websocket','polling']});
+socket.on('connect', () => { setConn(true); loadAll(); });
+socket.on('disconnect', () => setConn(false));
+socket.on('stats', d => { applyStats(d); document.getElementById('last-update').textContent = new Date().toLocaleTimeString(); });
+
+function setConn(ok) {
+  document.getElementById('conn-dot').style.background = ok ? 'var(--green)' : 'var(--red)';
+  document.getElementById('conn-label').textContent = ok ? 'Online' : 'Offline';
+}
+
+async function api(path) {
+  const r = await fetch(BACKEND + path);
+  return r.json();
+}
+
+async function loadAll() {
+  loadSystem(); loadDisk(); loadServices(); loadLogs(); loadUpdates();
+}
+
+async function loadSystem() {
+  const d = await api('/api/system');
+  document.getElementById('sb-ip').textContent = Object.values(d.ips||{})[0] || '—';
+  document.getElementById('about-backend').textContent = BACKEND;
+  document.getElementById('term-prompt').textContent = `plizen@${d.hostname||'pi'}:~$`;
+}
+
+async function loadDisk() {
+  const d = await api('/api/disk');
+  const rows = (d.disks||[]).map(r=>`<tr><td>${r.device}</td><td>${r.mount}</td><td>${r.fstype}</td><td>${r.size}</td><td>${r.used}</td><td>${r.avail}</td><td><div class="bar-track" style="width:80px"><div class="bar-fill" style="width:${r.pct}%;background:var(--accent)"></div></div> ${r.pct}%</td></tr>`).join('');
+  document.getElementById('disk-table').innerHTML = `<table><tr><th>Device</th><th>Mount</th><th>FS</th><th>Size</th><th>Used</th><th>Free</th><th>Usage</th></tr>${rows}</table>`;
+}
+
+async function loadServices() {
+  const d = await api('/api/services');
+  const svcs = d.services||[];
+  const failed = svcs.filter(s=>s.status!=='active').length;
+  const badge = document.getElementById('svc-badge');
+  badge.style.display = failed>0?'':'none'; badge.textContent = failed;
+  const rows = svcs.map(s=>`<tr><td>${s.name}</td><td><span class="badge ${s.status==='active'?'green':s.status==='failed'?'red':'yellow'}">${s.status}</span></td><td>${s.pid}</td><td><button class="btn" style="padding:2px 8px;font-size:10px" onclick="svcAction('restart','${s.name}')">↺</button> <button class="btn" style="padding:2px 8px;font-size:10px" onclick="svcAction('${s.status==='active'?'stop':'start'}','${s.name}')">${s.status==='active'?'stop':'start'}</button></td></tr>`).join('');
+  document.getElementById('svc-table').innerHTML = `<table><tr><th>Service</th><th>Status</th><th>PID</th><th>Actions</th></tr>${rows}</table>`;
+}
+
+async function loadLogs() {
+  const d = await api('/api/logs?n=100');
+  allLogs = d.logs||[]; renderLogs(allLogs);
+}
+
+function renderLogs(logs) {
+  document.getElementById('log-area').innerHTML = logs.map(l=>`<div class="log-line"><span class="log-time">${(l.time||'').slice(11,19)}</span><span class="log-level ${l.level}">${(l.level||'info').toUpperCase()}</span><span>${esc(l.message||'')}</span></div>`).join('');
+}
+
+function filterLogs(type) {
+  if(type==='all'){renderLogs(allLogs);return;}
+  if(type==='search'){const q=document.getElementById('log-search').value.toLowerCase();renderLogs(allLogs.filter(l=>(l.message||'').toLowerCase().includes(q)));return;}
+  renderLogs(allLogs.filter(l=>l.level===type));
+}
+
+async function loadUpdates() {
+  try {
+    const d = await api('/api/updates');
+    const pkgs = d.updates||[];
+    const badge = document.getElementById('upd-badge');
+    badge.style.display = pkgs.length>0?'':'none'; badge.textContent = pkgs.length;
+    if(!pkgs.length){document.getElementById('upd-table').innerHTML='<p style="color:var(--green)">✓ System is up to date.</p>';return;}
+    document.getElementById('upd-table').innerHTML = `<table><tr><th>Package</th><th>Current</th><th>Available</th></tr>${pkgs.map(p=>`<tr><td>${p.package}</td><td>${p.current}</td><td>${p.new}</td></tr>`).join('')}</table><button class="btn primary" style="margin-top:12px" onclick="alert('SSH into your Pi and run: sudo apt upgrade -y')">⬆ How to Update All</button>`;
+  } catch(e){document.getElementById('upd-table').innerHTML='<p style="color:var(--text3)">Run: sudo apt update first</p>';}
+}
+
+function applyStats(d) {
+  const temp=d.temp||0, cpu=d.cpu||{}, ram=d.ram||{}, fan=d.fan||{}, net=d.net||{};
+  document.getElementById('sb-temp').textContent=temp+'°C';
+  document.getElementById('sb-uptime').textContent=d.uptime||'—';
+  const pill=document.getElementById('sb-temp-pill');
+  pill.className='temp-pill '+(temp>70?'hot':temp>55?'warm':'cool');
+  const cpuTotal=cpu.cpu!==undefined?cpu.cpu:avgCores(cpu);
+  document.getElementById('ov-temp').textContent=temp+'°C';
+  document.getElementById('ov-temp-lbl').textContent=temp>70?'🔴 Critical':temp>55?'🟡 Warm':'🟢 Normal';
+  document.getElementById('ov-cpu').textContent=cpuTotal.toFixed(0)+'%';
+  document.getElementById('ov-ram').textContent=(ram.used_mb||0).toFixed(0)+'MB';
+  document.getElementById('ov-ram-lbl').textContent='of '+(ram.total_mb||0).toFixed(0)+'MB';
+  document.getElementById('ov-fan').textContent=fan.rpm||'—';
+  document.getElementById('alert-box').style.display=temp>70?'flex':'none';
+  arcSet('g-temp-arc',temp/85*100,temp>70?'var(--red)':temp>55?'var(--yellow)':'var(--green)');
+  arcSet('g-cpu-arc',cpuTotal,'var(--accent2)');
+  arcSet('g-ram-arc',ram.pct||0,'var(--blue)');
+  document.getElementById('g-temp').textContent=temp;
+  document.getElementById('g-cpu').textContent=cpuTotal.toFixed(0);
+  document.getElementById('g-ram').textContent=(ram.pct||0).toFixed(0);
+  cpuHist.push(cpuTotal);cpuHist.shift();
+  ramHist.push(ram.pct||0);ramHist.shift();
+  drawChart('cpu-line','cpu-fill',cpuHist);
+  drawChart('ram-line','ram-fill',ramHist);
+  const coreKeys=Object.keys(cpu).filter(k=>k.startsWith('cpu')&&k!=='cpu').sort();
+  document.getElementById('cores-bars').innerHTML=coreKeys.map(k=>`<div class="bar-row"><span class="bar-label">${k.toUpperCase()}</span><div class="bar-track"><div class="bar-fill" style="width:${cpu[k]}%;background:var(--accent)"></div></div><span class="bar-val">${(cpu[k]||0).toFixed(0)}%</span></div>`).join('');
+  document.getElementById('mem-bars').innerHTML=`<div class="bar-row"><span class="bar-label">RAM</span><div class="bar-track"><div class="bar-fill" style="width:${ram.pct||0}%;background:var(--blue)"></div></div><span class="bar-val">${(ram.pct||0).toFixed(0)}%</span></div><div class="bar-row"><span class="bar-label">Swap</span><div class="bar-track"><div class="bar-fill" style="width:${ram.swap_pct||0}%;background:var(--purple)"></div></div><span class="bar-val">${(ram.swap_pct||0).toFixed(0)}%</span></div>`;
+  renderFan(fan);
+  const ifaces=Object.keys(net);
+  if(ifaces.length){
+    const rx=ifaces.reduce((s,k)=>s+(net[k].rx_kbps||0),0);
+    const tx=ifaces.reduce((s,k)=>s+(net[k].tx_kbps||0),0);
+    document.getElementById('net-rx').textContent=rx>1024?(rx/1024).toFixed(1)+' MB/s':rx.toFixed(0)+' KB/s';
+    document.getElementById('net-tx').textContent=tx>1024?(tx/1024).toFixed(1)+' MB/s':tx.toFixed(0)+' KB/s';
+    document.getElementById('net-interfaces').innerHTML=`<table><tr><th>Interface</th><th>RX</th><th>TX</th></tr>${ifaces.map(k=>`<tr><td>${k}</td><td>${net[k].rx_kbps||0} KB/s</td><td>${net[k].tx_kbps||0} KB/s</td></tr>`).join('')}</table>`;
+  }
+}
+
+function avgCores(cpu){const c=Object.entries(cpu).filter(([k])=>k!=='cpu');return c.length?c.reduce((s,[,v])=>s+v,0)/c.length:0;}
+function arcSet(id,pct,color){const el=document.getElementById(id);el.setAttribute('stroke-dashoffset',173-(pct/100)*173);el.setAttribute('stroke',color);}
+function drawChart(lineId,fillId,data){const n=data.length,w=400,h=100;const pts=data.map((v,i)=>[i/(n-1)*w,h-(v/100)*h*0.88-4]);const d=pts.map((p,i)=>(i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');document.getElementById(lineId).setAttribute('d',d);document.getElementById(fillId).setAttribute('d',d+' L400,100 L0,100 Z');}
+
+// Fan
+let _fanSliding=false,_fanSlideTimer=null;
+function renderFan(f){
+  const wrap=document.getElementById('fan-controls');
+  if(!wrap.children.length){
+    wrap.innerHTML=`<div class="fan-item"><div class="fan-header"><div><div class="fan-name">RPi Active Cooler</div><div class="fan-rpm">Speed: <span id="fan-rpm">—</span> RPM</div></div><div style="display:flex;align-items:center;gap:10px"><span class="fan-icon spin" id="fan-icon" style="animation-duration:1s">🌀</span><button class="mode-btn on" id="fan-auto-btn" onclick="toggleFanAuto()">Firmware Auto</button></div></div><div style="font-size:10px;color:var(--text3);margin-bottom:10px">Firmware Auto = Pi manages speed automatically (recommended)</div><div class="fan-slider-row"><label>0%</label><input type="range" min="0" max="100" value="0" id="fan-sl" oninput="onFanSlide(this.value)"><label>100%</label><span class="fan-pct" id="fan-pct">auto</span></div><div style="display:flex;gap:6px;margin-top:8px"><button class="mode-btn" onclick="setFanPct(0)">Off</button><button class="mode-btn" onclick="setFanPct(25)">Low</button><button class="mode-btn" onclick="setFanPct(50)">Med</button><button class="mode-btn" onclick="setFanPct(75)">High</button><button class="mode-btn" onclick="setFanPct(100)">Max</button></div>${!f.available?'<div style="color:var(--yellow);font-size:11px;margin-top:10px">⚠ Fan not detected in /sys/class/hwmon</div>':''}</div>`;
+  }
+  if(_fanSliding)return;
+  document.getElementById('fan-rpm').textContent=f.rpm||0;
+  document.getElementById('fan-pct').textContent=f.auto?'auto':(f.pct||0)+'%';
+  document.getElementById('fan-sl').value=f.pct||0;
+  document.getElementById('fan-auto-btn').className='mode-btn'+(f.auto?' on':'');
+  const icon=document.getElementById('fan-icon');
+  icon.style.animationDuration=(f.rpm||0)>0?Math.max(0.08,1-(f.rpm/4000))+'s':'9999s';
+}
+async function setFanPct(pct){_fanSliding=false;await fetch(BACKEND+'/api/fan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pct,auto:false})});document.getElementById('fan-sl').value=pct;document.getElementById('fan-pct').textContent=pct+'%';document.getElementById('fan-auto-btn').classList.remove('on');}
+function onFanSlide(val){_fanSliding=true;document.getElementById('fan-pct').textContent=val+'%';clearTimeout(_fanSlideTimer);_fanSlideTimer=setTimeout(async()=>{await fetch(BACKEND+'/api/fan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pct:parseInt(val),auto:false})});_fanSliding=false;},400);}
+async function toggleFanAuto(){const btn=document.getElementById('fan-auto-btn');const nowAuto=btn.classList.contains('on');if(nowAuto){await setFanPct(parseInt(document.getElementById('fan-sl').value)||50);}else{await fetch(BACKEND+'/api/fan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auto:true})});btn.className='mode-btn on';document.getElementById('fan-pct').textContent='auto';}}
+
+// Thermal curve
+const defaultCurve=[{t:'Below 45°C',k:0,v:0},{t:'45–55°C',k:45,v:25},{t:'55–65°C',k:55,v:50},{t:'65–75°C',k:65,v:75},{t:'Above 75°C',k:75,v:100}];
+document.getElementById('curve-rows').innerHTML=defaultCurve.map(c=>`<div class="bar-row" style="margin-bottom:12px"><span class="bar-label" style="width:90px">${c.t}</span><input type="range" min="0" max="100" value="${c.v}" id="crv-${c.k}" ${c.k===75?'disabled':''} oninput="document.getElementById('crvv-${c.k}').textContent=this.value+'%'"><span class="fan-pct" id="crvv-${c.k}">${c.v}%</span></div>`).join('');
+async function saveCurve(){const curve={};defaultCurve.forEach(c=>{curve[c.k]=parseInt(document.getElementById('crv-'+c.k).value);});await fetch(BACKEND+'/api/fan/curve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({curve})});alert('Thermal curve saved!');}
+
+// Terminal
+function termLogin(){
+  const pass=document.getElementById('term-pass').value;
+  if(!pass){alert('Enter the terminal password.');return;}
+  termPassword=pass; termUnlocked=true;
+  document.getElementById('term-login-box').style.display='none';
+  document.getElementById('term-locked').style.display='none';
+  document.getElementById('term-out').style.display='block';
+  document.getElementById('term-input-row').style.display='flex';
+  document.getElementById('term-allowed').style.display='block';
+  addTermLine('prompt','Welcome to Plizen Terminal. Type a command below.');
+}
+const termLines=[];
+function addTermLine(type,text,prompt=''){
+  termLines.push({type,text,prompt});
+  const out=document.getElementById('term-out');
+  out.innerHTML=termLines.map(l=>l.type==='prompt'?`<div><span class="t-prompt">${l.prompt}</span> ${esc(l.text)}</div>`:`<div class="t-out">${esc(l.text).replace(/\n/g,'<br>')}</div>`).join('');
+  out.scrollTop=999999;
+}
+async function termKey(e){
+  if(e.key!=='Enter')return;
+  const inp=document.getElementById('term-input');
+  const cmd=inp.value.trim(); inp.value='';
+  if(!cmd)return;
+  const prompt=document.getElementById('term-prompt').textContent;
+  addTermLine('prompt',cmd,prompt);
+  if(cmd==='clear'){termLines.splice(0,termLines.length);document.getElementById('term-out').innerHTML='';return;}
+  addTermLine('out','Running…');
+  try{
+    const r=await fetch(BACKEND+'/api/exec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd,password:termPassword})});
+    const d=await r.json();
+    termLines[termLines.length-1]={type:'out',text:d.output||d.error||'(no output)'};
+    document.getElementById('term-out').innerHTML=termLines.map(l=>l.type==='prompt'?`<div><span class="t-prompt">${l.prompt}</span> ${esc(l.text)}</div>`:`<div class="t-out">${esc(l.text).replace(/\n/g,'<br>')}</div>`).join('');
+    document.getElementById('term-out').scrollTop=999999;
+  }catch(err){termLines[termLines.length-1]={type:'out',text:'Error: backend not reachable'};document.getElementById('term-out').innerHTML=termLines.map(l=>l.type==='prompt'?`<div><span class="t-prompt">${l.prompt}</span> ${esc(l.text)}</div>`:`<div class="t-out">${esc(l.text).replace(/\n/g,'<br>')}</div>`).join('');}
+}
+
+// Service control
+async function svcAction(action,name){if(!confirm(`${action} ${name}?`))return;await fetch(BACKEND+'/api/service/'+action+'/'+name,{method:'POST'});setTimeout(loadServices,1500);}
+
+// Reboot/Shutdown
+async function doReboot(){if(!confirm('Reboot the Pi?'))return;await fetch(BACKEND+'/api/reboot',{method:'POST'});alert('Rebooting…');}
+async function doShutdown(){if(!confirm('Shutdown the Pi?'))return;await fetch(BACKEND+'/api/shutdown',{method:'POST'});alert('Shutting down…');}
+
+// Tab switching
+function showTab(id,el,icon,title,desc){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  if(el)el.classList.add('active');
+  document.getElementById('topbar-icon').textContent=icon||'';
+  document.getElementById('topbar-title').textContent=title||id;
+  document.getElementById('topbar-sub').textContent=desc||'';
+}
+
+function setAccent(c,c2,el){document.querySelectorAll('.cpick').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');document.documentElement.style.setProperty('--accent',c);document.documentElement.style.setProperty('--accent2',c2);}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// Mark default accent color
+document.querySelector('.cpick').classList.add('sel');
+</script>
+</body>
+</html>
