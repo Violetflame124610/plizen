@@ -21,7 +21,7 @@ Plizen is a lightweight, self-hosted dashboard for your Raspberry Pi — monitor
 ## Install
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Violetflame124610/plizen/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Violetflame124610/plizen/main/versions/plizen-V1.2/install.sh | bash
 ```
 
 Then open your browser at `http://<your-pi-ip>:8080`
