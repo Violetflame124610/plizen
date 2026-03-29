@@ -21,7 +21,7 @@
 ## ⚡ Quick Install (One Command)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Violetflame124610/plizen/v1.1/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Violetflame124610/plizen/versions/plizen-V1.1/install.sh | bash
 ```
 
 ---
