@@ -442,4 +442,4 @@ if __name__ == "__main__":
         set_fan_firmware_auto()
     threading.Thread(target=broadcast_stats, daemon=True).start()
     print("[OK] Pi Cockpit backend → http://0.0.0.0:5000")
-    socketio.run(app, host="0.0.0.0", port=5000, debug=False)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=False, allow_unsafe_werkzeug=True)
