@@ -5,9 +5,8 @@
 <img src="https://img.shields.io/badge/License-MIT-brightgreen?style=for-the-badge"/>
 
 # Plizen v1.2
-### Latest Stable Release
+### Plizen v1.2 Stable Release
 
-> ✅ **This is the current recommended version.**  
 > Terminal is protected with your real Raspberry Pi login credentials.  
 > Same username and password as SSH.
 
