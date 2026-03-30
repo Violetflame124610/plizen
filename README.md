@@ -38,7 +38,7 @@ No cloud. No subscription. No nonsense.
 ## ⚡ Quick Install
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Violetflame124610/plizen/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Violetflame124610/plizen/main/versions/plizen-V1.2/install.sh | bash
 ```
 
 That's it. Plizen will install itself, set up both services, and tell you the URL to open.
