@@ -32,13 +32,14 @@ No cloud. No subscription. No nonsense.
 - 🖥️ **Terminal** — safe read-only shell with password protection
 - 🎛️ **Fully customizable** — accent colors, thermal curve, toggles
 - 🚀 **One command install** — just like Pi-hole
+- 🔒 **Dashboard password Proetcted** - for sequrity reasons
 
 ---
 
-## ⚡ Quick Install
+## ⚡ Quick Install (V-1.3)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Violetflame124610/plizen/main/versions/plizen-V1.2/install.sh | bash
+cd ~ && curl -sSL https://raw.githubusercontent.com/Violetflame124610/plizen/main/versions/plizen-V1.3/install.sh -o install.sh && bash install.sh
 ```
 
 That's it. Plizen will install itself, set up both services, and tell you the URL to open.
@@ -84,13 +85,10 @@ http://raspberrypi.local:9090
 ## 🗂️ Project Structure
 
 ```
-plizen/
+plizen/versions/plizen-V1.3
 ├── app.py              # Flask backend — reads system data, controls fan
 ├── index.html          # Frontend dashboard — single file, no build needed
-├── install.sh          # One-command installer
-├── plizen.service      # Systemd service file (backend)
-├── plizen-web.service  # Systemd service file (frontend)
-└── README.md
+└── install.sh          # One-command installer
 ```
 
 ---
@@ -135,8 +133,9 @@ Pi 5 users — the fan works out of the box, no extra steps.
 
 | Version | Description |
 |---------|-------------|
-| [v1.2](https://github.com/Violetflame124610/plizen) | Current — password protected terminal, fan control, full dashboard |
-| [v1.1](https://github.com/Violetflame124610/plizen/tree/v1.1) | Passwordless version — open access terminal |
+| [v1.1](https://github.com/Violetflame124610/plizen/versions/plizen-V1.1) | Passwordless version — open access terminal |
+| [v1.2](https://github.com/Violetflame124610/plizen/versions/plizen-V1.2) | Current — password protected terminal, fan control, full dashboard |
+| [v1.3](https://github.com/Violetflame124610/plizen/versions/plizen-V1.3) | Log in credentials, new configure tab, new teal default accent color |
 
 ---
 
@@ -160,8 +159,7 @@ Just keep the credits. 😊
 
 <div align="center">
 
-**Plizen v1.2** · Made by Dhruva · [GitHub](https://github.com/Violetflame124610/plizen)
+**Plizen v1.3** · Made by Dhruva · [GitHub](https://github.com/Violetflame124610/plizen)
 
 *The open source Pi management dashboard*<br>
-[Explore more in the website!!](https://plizen.pythonanywhere.com)
 </div>
