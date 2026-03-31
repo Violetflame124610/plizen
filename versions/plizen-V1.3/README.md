@@ -35,9 +35,7 @@ configure your Pi — all from any browser on your network.<br>
 ## ⚡ Quick Install
 
 ```bash
-cd ~
-curl -sSL https://raw.githubusercontent.com/Violetflame124610/plizen/main/versions/plizen-V1.3/install.sh -o install.sh
-bash install.sh
+cd ~ && curl -sSL https://raw.githubusercontent.com/Violetflame124610/plizen/main/versions/plizen-V1.3/install.sh -o install.sh && bash install.sh
 ```
 
 The installer will:
