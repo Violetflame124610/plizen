@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://img.shields.io/badge/Plizen-v1.2-orange?style=for-the-badge&logo=raspberry-pi&logoColor=white"/>
+<img src="https://img.shields.io/badge/Plizen-v1.3-orange?style=for-the-badge&logo=raspberry-pi&logoColor=white"/>
 <img src="https://img.shields.io/badge/Platform-Raspberry%20Pi-red?style=for-the-badge&logo=raspberry-pi&logoColor=white"/>
 <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge"/>
 <img src="https://img.shields.io/badge/Open%20Source-Yes-brightgreen?style=for-the-badge"/>
