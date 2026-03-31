@@ -96,9 +96,8 @@ That's it. Open your browser and go to `http://<your-pi-ip>:9090`
 
 ## 📸 Screenshots
 
-> Dashboard overview, login screen, fan control, configure tab
+<img width="1861" height="882" alt="image" src="https://github.com/user-attachments/assets/7fcbbf60-79a1-423e-9bc6-3d98cf2440f2" />
 
-*Coming soon — feel free to open a PR with screenshots!*
 
 ---
 
