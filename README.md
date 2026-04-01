@@ -17,7 +17,7 @@ No cloud. No subscription. No nonsense.
 ---
 
 ## Complete DEMO
-[![Watch the video]([https://www.youtube.com/watch?v=VIDEO_ID](https://www.youtube.com/watch?v=yy6boub0Gko))
+[Watch the video now!]([https://www.youtube.com/watch?v=VIDEO_ID](https://www.youtube.com/watch?v=yy6boub0Gko))
 
 </div>
 
