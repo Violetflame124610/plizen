@@ -28,6 +28,10 @@ err()  { echo -e "  ${RED}[✗]${NC} $1"; exit 1; }
 
 [[ "$(uname -m)" =~ ^arm|^aarch64 ]] || echo -e "  ${YELLOW}[!]${NC} Not ARM — fan control unavailable."
 
+# ── Track install count ────────────────────────────────────────────────────
+# Silently ping counter — fails gracefully if no internet
+curl -sSL "https://api.counterapi.dev/v1/plizen/installs/up" -o /dev/null 2>/dev/null || true
+
 # ── Ask for dashboard password ─────────────────────────────────────────────
 echo -e "  ${BOLD}Set your dashboard password${NC}"
 echo -e "  This is the password you will use to log into Plizen."
